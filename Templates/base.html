@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css\main.css') }}">
+    {% block head %}{% endblock %} 
+    <!-- Additional meta tags, link tags, or stylesheets can be included here -->
+    
+</head>
+<body>
+    <!-- Your page content goes here -->
+
+    {% block body %}{% endblock %}
+    <!-- Scripts can be included at the end of the body to improve page loading performance -->
+    <!-- Example script tag for JavaScript -->
+    <script src="your-script.js"></script>
+</body>
+</html>
