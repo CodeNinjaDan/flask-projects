@@ -1,0 +1,9 @@
+*.db
+*.idea
+*.env
+venv/
+.vscode
+env
+instance
+*.pyc
+*.exe
