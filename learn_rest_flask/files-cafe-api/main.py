@@ -73,6 +73,43 @@ def get_cafes_by_location(location):
         return jsonify(error={"Not Found": "Sorry, we don't have a cafe at that location."}), 404
 
 
+# Test POST, PUT, PATCH & DELETE on Postman
+
+# HTTP POST - Create Record
+@app.route("/add", methods=["POST"])
+def add_cafe():
+    cafe_to_add = Cafe(
+        name=request.form.get("name"),
+        map_url=request.form.get("map_url"),
+        img_url=request.form.get("img_url"),
+        location=request.form.get("img_url"),
+        seats=request.form.get("seats"),
+        has_toilet=bool(request.form.get("has_toilet")),
+        has_wifi=bool(request.form.get("has_wifi")),
+        has_sockets=bool(request.form.get("has_sockets")),
+        can_take_calls=bool(request.form.get("can_take_calls")),
+        coffee_price=request.form.get("coffee_price")
+    )
+    db.session.add(cafe_to_add)
+    db.session.commit()
+
+    return jsonify(response={"Success": "Successfully added the new cafe"})
+
+
+# HTTP PUT/PATCH - Update Record
+@app.route("/update-price/<int:cafe_id>", methods=["PATCH"])
+def update_coffee_price(cafe_id):
+    new_price = request.args.get("new_price")
+    cafe = db.get_or_404(Cafe, cafe_id)
+
+    if not cafe:
+        return jsonify(response={"Error": "No cafe with that id was found in the database"}), 404
+    else:
+        cafe.coffee_price = new_price
+        db.session.commit()
+        return jsonify(response={"Success": "Successfully updated the coffee price"}), 200
+
+# HTTP DELETE - Delete Record
 
 
 if __name__ == '__main__':
