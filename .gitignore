@@ -7,3 +7,5 @@ env
 instance
 *.pyc
 *.exe
+*.jpg
+*.ico

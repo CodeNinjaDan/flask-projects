@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, request
 from flask_bootstrap import Bootstrap5
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -15,6 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 Bootstrap5(app)
+ckeditor = CKEditor(app)
 
 # CREATE DATABASE
 class Base(DeclarativeBase):
@@ -38,18 +39,49 @@ class BlogPost(db.Model):
 with app.app_context():
     db.create_all()
 
+# BLOG FORM USING CKEDITOR
+# Using commas creates tuples instead of separate class attributes
+class PostForm(FlaskForm):
+    title = StringField('Blog Post Title', validators=[DataRequired()])
+    subtitle = StringField('Blog Post Subtitle', validators=[DataRequired()])
+    author = StringField('Your Name', validators=[DataRequired()])
+    img_url = StringField('Blog Image URL', validators=[DataRequired(), URL()])
+    body = CKEditorField('Body')
+    submit = SubmitField('Submit Post')
+
 
 @app.route('/')
 def get_all_posts():
-    posts = []
+    posts = db.session.execute(db.select(BlogPost)).scalars().all()
     return render_template("index.html", all_posts=posts)
 
-@app.route('/')
+@app.route('/post/<int:post_id>')
 def show_post(post_id):
-    requested_post = "Grab the post from your database"
+    requested_post = db.get_or_404(BlogPost, post_id)
     return render_template("post.html", post=requested_post)
 
+# If you don't handle GET and POST requests, null values will atempt to be added before the user submits their input
+# request.form.get() bypasses all validators put in place (does not validate first).
+# request.form.get() also always returns a string
+# while form.field_name.data converts the data to the field type and it's also much safer
 
+@app.route('/new-post', methods=["GET", "POST"])
+def create_post():
+    form = PostForm()
+    if form.validate_on_submit():
+        new_post = BlogPost(
+            title=form.title.data,
+            subtitle=form.subtitle.data,
+            date=date.today().strftime("%B %d, %Y"),
+            body=form.body.data,
+            author=form.author.data,
+            img_url=form.img_url.data
+        )
+        db.session.add(new_post)
+        db.session.commit()
+        return redirect(url_for('get_all_posts'))
+
+    return render_template('make-post.html', form=form)
 
 
 @app.route("/about")
