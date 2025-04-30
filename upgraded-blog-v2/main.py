@@ -68,6 +68,10 @@ def show_post(post_id):
 @app.route('/new-post', methods=["GET", "POST"])
 def create_post():
     form = PostForm()
+
+    # Get source parameter from URL
+    source = request.args.get('source')
+
     if form.validate_on_submit():
         new_post = BlogPost(
             title=form.title.data,
@@ -81,8 +85,33 @@ def create_post():
         db.session.commit()
         return redirect(url_for('get_all_posts'))
 
-    return render_template('make-post.html', form=form)
+    return render_template('make-post.html', form=form, source=source)
 
+
+@app.route('/edit-post/<int:post_id>', methods=["GET", "POST"])
+def edit_post(post_id):
+    post = db.get_or_404(BlogPost, post_id)
+
+    # Initialize the form with existing post data
+    form = PostForm(
+        title=post.title,
+        subtitle=post.subtitle,
+        author=post.author,
+        img_url=post.img_url,
+        body=post.body
+    )
+
+    # Handle form submission for editing
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.subtitle = form.subtitle.data
+        post.body = form.body.data
+        post.author = form.author.data
+        post.img_url = form.img_url.data
+        db.session.commit()
+        return redirect(url_for('show_post', post_id=post.id))
+
+    return render_template('make-post.html', form=form, is_edit=True)
 
 @app.route("/about")
 def about():
