@@ -46,7 +46,7 @@ def load_user(user_id):
 
 @app.route('/')
 def home():
-    return render_template("index.html")
+    return render_template("index.html", logged_in=current_user.is_authenticated)
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -65,34 +65,47 @@ def register():
 
         return redirect(url_for('secrets'))
 
-    return render_template("register.html")
+    elif request.form.get('email') in User.email:
+        flash("You've already signed up with this email! Log in instead.")
+        return redirect(url_for('login'))
+
+    return render_template("register.html", logged_in=current_user.is_authenticated)
 
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        user = db.session.execute(db.select(User).where(User.email == request.form.get('email'))).scalar().all()
+        user = db.session.execute(db.select(User).where(User.email == request.form.get('email'))).scalar()
         is_password_correct = check_password_hash(user.password, request.form.get('password'))
 
-        if is_password_correct:
+        if is_password_correct and user:
             login_user(user)
             return redirect(url_for('secrets'))
 
-    return render_template("login.html")
+        elif user is None:
+            flash("The email entered is incorrect!")
+            return redirect(url_for('login'))
+
+        elif not is_password_correct:
+            flash("You entered the wrong password! Please try again")
+            return redirect(url_for('login'))
+
+    return render_template("login.html", logged_in=current_user.is_authenticated)
 
 
 @app.route('/secrets')
 @login_required
 def secrets():
-    return render_template("secrets.html")
+    return render_template("secrets.html", logged_in=True)
 
 
 @app.route('/logout')
 def logout():
-    pass
+    logout_user()
+    return redirect(url_for('home'))
 
 
-@app.route('/download')
+@app.route('/download', methods=["POST"])
 @login_required
 def download():
     return send_from_directory('static', path="files/cheat_sheet.pdf")
