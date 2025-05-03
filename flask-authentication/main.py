@@ -52,22 +52,24 @@ def home():
 @app.route('/register', methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        new_user = User(
-            name=request.form.get('name'),
-            email=request.form.get('email'),
-            password=generate_password_hash(request.form.get('password'), method='pbkdf2:sha256', salt_length=8)
-        )
-        db.session.add(new_user)
-        db.session.commit()
+        user = db.session.execute(db.select(User).where(User.email == request.form.get('email'))).scalar()
 
-        # Log in and authenticate user after adding details to database.
-        login_user(new_user)
+        if user:
+            flash("You've already signed up with this email! Log in instead.")
+            return redirect(url_for('login'))
+        else:
+            new_user = User(
+                name=request.form.get('name'),
+                email=request.form.get('email'),
+                password=generate_password_hash(request.form.get('password'), method='pbkdf2:sha256', salt_length=8)
+            )
+            db.session.add(new_user)
+            db.session.commit()
 
-        return redirect(url_for('secrets'))
+            # Log in and authenticate user after adding details to database.
+            login_user(new_user)
 
-    elif request.form.get('email') in User.email:
-        flash("You've already signed up with this email! Log in instead.")
-        return redirect(url_for('login'))
+            return redirect(url_for('secrets'))
 
     return render_template("register.html", logged_in=current_user.is_authenticated)
 
@@ -75,20 +77,21 @@ def register():
 @app.route('/login', methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        user = db.session.execute(db.select(User).where(User.email == request.form.get('email'))).scalar()
-        is_password_correct = check_password_hash(user.password, request.form.get('password'))
 
-        if is_password_correct and user:
+        user = db.session.execute(db.select(User).where(User.email == request.form.get('email'))).scalar()
+        if user is None:
+            flash("No user with this email address was found! Please try again.")
+            return redirect(url_for('login'))
+
+        elif not check_password_hash(user.password, request.form.get('password')):
+            flash("You entered the wrong password! Please try again.")
+            return redirect(url_for('login'))
+
+        else:
             login_user(user)
+            flash("Logged in successfully :)")
             return redirect(url_for('secrets'))
 
-        elif user is None:
-            flash("The email entered is incorrect!")
-            return redirect(url_for('login'))
-
-        elif not is_password_correct:
-            flash("You entered the wrong password! Please try again")
-            return redirect(url_for('login'))
 
     return render_template("login.html", logged_in=current_user.is_authenticated)
 
