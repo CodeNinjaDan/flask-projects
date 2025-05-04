@@ -18,12 +18,12 @@ class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=8)])
     name = StringField("Name", validators=[DataRequired()])
-    submit = SubmitField("Sign up")
+    submit = SubmitField("Sign me up")
 
 # LoginForm to login existing users
 class LoginForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=8)])
-    submit = SubmitField("Let Me In!")
+    submit = SubmitField("Let me in!")
 
 # TODO: Create a CommentForm so users can leave comments below posts

@@ -59,6 +59,20 @@ def load_user(user_id):
     return db.get_or_404(User, user_id)
 
 
+# Admin only decorator
+def admin_only(f):
+    @wraps(f) # Preserves metadata of the original function
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+
+        if current_user.id != 1:
+            return abort(403)
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 @app.route('/register', methods=["GET", "POST"])
 def register():
     form = RegisterForm()
@@ -112,6 +126,7 @@ def login():
 
 @app.route('/logout')
 def logout():
+    logout_user()
     return redirect(url_for('get_all_posts'))
 
 
@@ -129,8 +144,9 @@ def show_post(post_id):
     return render_template("post.html", post=requested_post)
 
 
-# TODO: Use a decorator so only an admin user can create a new post
+# Decorator so only an admin user can create a new post
 @app.route("/new-post", methods=["GET", "POST"])
+@admin_only
 def add_new_post():
     form = CreatePostForm()
     if form.validate_on_submit():
@@ -148,7 +164,8 @@ def add_new_post():
     return render_template("make-post.html", form=form)
 
 
-# TODO: Use a decorator so only an admin user can edit a post
+# Decorator so only an admin user can edit a post
+@admin_only
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
 def edit_post(post_id):
     post = db.get_or_404(BlogPost, post_id)
@@ -170,7 +187,8 @@ def edit_post(post_id):
     return render_template("make-post.html", form=edit_form, is_edit=True)
 
 
-# TODO: Use a decorator so only an admin user can delete a post
+# Decorator so only an admin user can delete a post
+@admin_only
 @app.route("/delete/<int:post_id>")
 def delete_post(post_id):
     post_to_delete = db.get_or_404(BlogPost, post_id)
