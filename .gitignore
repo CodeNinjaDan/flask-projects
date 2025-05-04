@@ -10,3 +10,4 @@ instance
 *.jpg
 *.ico
 *.pdf
+/blog-post-project/tests.py

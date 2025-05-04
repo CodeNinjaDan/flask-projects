@@ -2,18 +2,18 @@ from datetime import date
 from flask import Flask, abort, render_template, redirect, url_for, flash
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
-from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from forms import CreatePostForm
+from forms import CreatePostForm, RegisterForm, LoginForm
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
+# TODO: Install and setup bleach library to use cleanify function to increase security or any other library
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")
@@ -44,23 +44,70 @@ class BlogPost(db.Model):
     img_url: Mapped[str] = mapped_column(String(250), nullable=False)
 
 
-# TODO: Create a User table for all your registered users. 
-
+# User table for all registered users.
+class User(UserMixin, db.Model):
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(1000), nullable=False)
 
 with app.app_context():
     db.create_all()
 
+@login_manager.user_loader
+def load_user(user_id):
+    return db.get_or_404(User, user_id)
 
-# TODO: Use Werkzeug to hash the user's password when creating a new user.
-@app.route('/register')
+
+@app.route('/register', methods=["GET", "POST"])
 def register():
-    return render_template("register.html")
+    form = RegisterForm()
+
+    if form.validate_on_submit():
+        user = db.session.execute(db.select(User).where(User.email == form.email.data)).scalar()
+
+        if user:
+            flash("You've already signed up with this email! Log in instead.")
+            return redirect(url_for('login'))
+
+        new_user = User(
+            name=form.name.data,
+            email=form.email.data,
+            password=generate_password_hash(form.password.data, method='pbkdf2:sha256', salt_length=8)
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Log in and authenticate user after adding details to database.
+        login_user(new_user)
+
+        return redirect(url_for('get_all_posts'))
+
+    return render_template("register.html", form=form)
 
 
-# TODO: Retrieve a user from the database based on their email. 
-@app.route('/login')
+# Retrieve a user from the database based on their email.
+@app.route('/login', methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    form = LoginForm()
+
+    if form.validate_on_submit():
+        user = db.session.execute(db.select(User).where(User.email == form.email.data)).scalar()
+        if user is None:
+            flash("No user with this email address was found! Please try again.")
+            return redirect(url_for('login'))
+
+        elif not check_password_hash(user.password, form.password.data):
+            flash("You entered the wrong password! Please try again.")
+            return redirect(url_for('login'))
+
+        else:
+            login_user(user)
+            flash("Logged in successfully :)")
+            return redirect(url_for('get_all_posts'))
+
+
+    return render_template("login.html", form=form)
 
 
 @app.route('/logout')
