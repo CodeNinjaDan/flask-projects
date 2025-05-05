@@ -5,15 +5,17 @@ from flask_ckeditor import CKEditor
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Text, ForeignKey
+from sqlalchemy import Integer, String, Text
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
+import hashlib
+from urllib.parse import urlencode
+import bleach
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# TODO: Install and setup bleach library to use cleanify function to increase security or any other library
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")
@@ -74,6 +76,40 @@ with app.app_context():
 def load_user(user_id):
     return db.get_or_404(User, user_id)
 
+@app.template_filter('gravatar')
+def gravatar_url(email, size=100, default='identicon', rating='g'):
+    """Generate Gravatar URL for given email address."""
+    email = email.lower().strip()
+
+    # Create an MD5 hash of the email
+    email_hash = hashlib.md5(email.encode('utf-8')).hexdigest()
+    params = urlencode({
+        's': str(size),
+        'd': default,
+        'r': rating
+    })
+    return f"https://www.gravatar.com/avatar/{email_hash}?{params}"
+
+
+def cleanify(content):
+    """
+    Sanitize user-generated content to prevent XSS attacks.
+    - Escape HTML tags
+    - Remove dangerous tags and attributes
+    """
+    allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
+                    'em', 'i', 'li', 'ol', 'p', 'strong', 'ul', 'h1',
+                    'h2', 'h3', 'h4', 'h5', 'h6', 'pre']
+
+    allowed_attrs = {
+        'a': ['href', 'title'],
+        '*': ['class']
+    }
+
+    return bleach.clean(content,
+                        tags=allowed_tags,
+                        attributes=allowed_attrs,
+                        strip=True)
 
 # Admin only decorator
 def admin_only(f):
@@ -164,8 +200,11 @@ def show_post(post_id):
             flash("You need to log in to comment")
             return redirect(url_for('login'))
 
+        # Sanitize comment text
+        sanitized_comment = cleanify(comment_form.comment_text.data)
+
         new_comment = Comment(
-            text=comment_form.comment_text.data,
+            text=sanitized_comment,
             comment_author=current_user,
             parent_post=requested_post
         )
@@ -180,10 +219,11 @@ def show_post(post_id):
 def add_new_post():
     form = CreatePostForm()
     if form.validate_on_submit():
+        sanitized_body = cleanify(form.body.data)
         new_post = BlogPost(
             title=form.title.data,
             subtitle=form.subtitle.data,
-            body=form.body.data,
+            body=sanitized_body,
             img_url=form.img_url.data,
             author=current_user,
             date=date.today().strftime("%B %d, %Y")
@@ -206,12 +246,14 @@ def edit_post(post_id):
         author=post.author,
         body=post.body
     )
+    sanitized_body = cleanify(edit_form.body.data)
+
     if edit_form.validate_on_submit():
         post.title = edit_form.title.data
         post.subtitle = edit_form.subtitle.data
         post.img_url = edit_form.img_url.data
         post.author = current_user
-        post.body = edit_form.body.data
+        post.body = sanitized_body
         db.session.commit()
         return redirect(url_for("show_post", post_id=post.id))
     return render_template("make-post.html", form=edit_form, is_edit=True)
