@@ -1,5 +1,5 @@
 from datetime import date
-from flask import Flask, abort, render_template, redirect, url_for, flash
+from flask import Flask, abort, render_template, redirect, url_for, flash, request
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
@@ -8,12 +8,13 @@ from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ContactForm
 import hashlib
 from urllib.parse import urlencode
 import bleach
 import os
 from dotenv import load_dotenv
+from flask_mail import Mail, Message
 load_dotenv()
 
 
@@ -110,6 +111,17 @@ def cleanify(content):
                         tags=allowed_tags,
                         attributes=allowed_attrs,
                         strip=True)
+
+
+# Configure Flask-Mail
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'true').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+mail = Mail(app)
+
 
 # Admin only decorator
 def admin_only(f):
@@ -274,9 +286,32 @@ def about():
     return render_template("about.html")
 
 
-@app.route("/contact")
+@app.route("/contact", methods=["GET", "POST"])
 def contact():
-    return render_template("contact.html")
+    form = ContactForm()
+    if form.validate_on_submit():
+        sanitized_name = cleanify(form.name.data)
+        sanitized_phone = cleanify(form.phone.data)
+        sanitized_message = cleanify(form.message.data)
+
+        try:
+            msg = Message(
+                subject=f"Blog Contact: Message from {sanitized_name}",
+                recipients=[app.config['MAIL_DEFAULT_SENDER']],
+                body=f"Name: {sanitized_name}\nEmail: {form.email.data}\nPhone: {sanitized_phone}\nMessage: {sanitized_message}",
+                reply_to=form.email.data
+
+            )
+            mail.send(msg)
+            flash("Message sent sucessfully.")
+            return render_template('contact.html', msg_sent=True)
+
+        except Exception as e:
+            print(f"Error sending email: {e}")
+            flash("An error occured while sending your message. Please try again later.")
+            return render_template('contact.html', msg_sent=False
+                                   )
+    return render_template("contact.html", msg_sent=False, form=form)
 
 
 if __name__ == "__main__":

@@ -30,7 +30,17 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Let me in!")
 
 # CommentForm so users can leave comments below posts
-
 class CommentForm(FlaskForm):
     comment_text = CKEditorField("Comment", validators=[DataRequired()])
     submit = SubmitField("Submit comment")
+
+class ContactForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired()],
+                      render_kw={"class": "form-control", "placeholder": "Your name"})
+    email = StringField("Email", validators=[DataRequired(), Email()],
+                      render_kw={"class": "form-control", "placeholder": "Your email"})
+    phone = StringField("Phone Number",
+                       render_kw={"class": "form-control", "placeholder": "Your phone (optional)"})
+    message = StringField("Message", validators=[DataRequired()],
+                          render_kw={"class": "form-control", "placeholder": "Your message", "rows": 5})
+    submit = SubmitField("Send")
