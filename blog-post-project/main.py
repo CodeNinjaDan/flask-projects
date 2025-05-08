@@ -309,8 +309,8 @@ def contact():
         except Exception as e:
             print(f"Error sending email: {e}")
             flash("An error occured while sending your message. Please try again later.")
-            return render_template('contact.html', msg_sent=False
-                                   )
+            return render_template('contact.html', msg_sent=False)
+
     return render_template("contact.html", msg_sent=False, form=form)
 
 
