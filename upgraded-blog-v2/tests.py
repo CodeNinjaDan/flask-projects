@@ -1,3 +1,4 @@
+"""This file is for testing and making changes to blog-post-project/main.py"""
 from main import app, db, User, BlogPost
 
 # def delete_all_users():
